@@ -5,7 +5,7 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client.connect(('localhost', 7774))
+        client.connect(('127.0.0.1', 5000))
         print("Conectado ao servidor.")
     except Exception as e:
         return print(f"\n Não foi possível se conectar: {e}")
