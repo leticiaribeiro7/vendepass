@@ -4,9 +4,9 @@ import threading
 users = []
 
 rotas = [
-    {'trecho': 'SSA-SP', 'assentos-livres': [1, 2, 3]},
-    {'trecho': 'SSA-RJ', 'assentos-livres': [1, 2, 4]},
-]  # colocar em outro arquivo 
+    {'id': 1, 'trecho': 'SSA -> SP', 'assentos-livres': [1, 2, 3]},
+    {'id': 2, 'trecho': 'SSA -> RJ', 'assentos-livres': [1, 2, 4]},
+]  
 
 
 
@@ -44,14 +44,23 @@ def handle_client(client):
     while True:
         try:
             request = client.recv(1024).decode('utf-8')
-            if request == "1":
-                client.send("opçao 1".encode('utf-8'))
-            if request == "2":
-                client.send("opçao 2".encode('utf-8'))
-            if request == "3":
-                client.send("opçao 3".encode("utf-8"))
-            if request == "4":
-                client.send("closed".encode('utf-8'))
+            match request:
+                case "1":
+                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['trecho']}" for rota in rotas)
+                    client.send(f"{rotas_disponiveis}\n".encode('utf-8'))
+                case "2":
+                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['trecho']}" for rota in rotas)
+                    client.send(f"{rotas_disponiveis}\n Escolha o número da rota correspondente: ".encode('utf-8'))
+
+                    for rota in rotas:
+                        if rota['id'] == request:
+                            assentos = ', '.join(str(assento) for assento in rota['assentos-livres'])
+
+                    client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+                    # lock começando aqui
+                case "4":
+                    client.send("closed".encode('utf-8'))
+                    client.close()
         except Exception as e:
             print(f"Error when handling client: {e}")
         # finally:
