@@ -41,7 +41,7 @@ def run_client(client):
             if response.lower() == "closed":
                 break
 
-            print(f"Received from server: {response}")
+            print(f"Received from server: \n {response}")
 
         except Exception as e:
             print(f"Error: {e}")
