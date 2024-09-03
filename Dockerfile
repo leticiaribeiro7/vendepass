@@ -18,4 +18,4 @@ CMD ["python", "-u", "server.py"]
 
 #
 # docker build -t servidor -f Dockerfile .  
-# docker run -d --name servidor -p 5000:5000 servidor
+# docker run -it --name servidor -p 5000:5000 servidor
