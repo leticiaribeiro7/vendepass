@@ -4,10 +4,11 @@ import threading
 users = []
 
 rotas = [
-    {'id': 1, 'trecho': 'SSA -> SP', 'assentos-livres': [1, 2, 3]},
-    {'id': 2, 'trecho': 'SSA -> RJ', 'assentos-livres': [1, 2, 4]},
+    {'id': 1, 'origem': 'SSA', 'destino': 'SP', 'assentos-livres': [1, 2, 3]},
+    {'id': 2, 'origem': 'SSA', 'destino': 'RJ', 'assentos-livres': [1, 2, 4]},
 ]  
 
+lock = threading.Lock()
 
 
 def main():
@@ -46,18 +47,41 @@ def handle_client(client):
             request = client.recv(1024).decode('utf-8')
             match request:
                 case "1":
-                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['trecho']}" for rota in rotas)
+                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['origem']} - {rota['destino']}" for rota in rotas)
                     client.send(f"{rotas_disponiveis}\n".encode('utf-8'))
                 case "2":
-                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['trecho']}" for rota in rotas)
+                    rotas_disponiveis = "\n".join(f"{rota['id']}. {rota['origem']} - {rota['destino']}" for rota in rotas)
                     client.send(f"{rotas_disponiveis}\n Escolha o número da rota correspondente: ".encode('utf-8'))
 
-                    for rota in rotas:
-                        if rota['id'] == request:
-                            assentos = ', '.join(str(assento) for assento in rota['assentos-livres'])
+                    id_rota = int(client.recv(1024).decode('utf-8').strip())
+                    rota_selecionada = ''
 
-                    client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
-                    # lock começando aqui
+                    #pega rota pelo id
+                    for rota in rotas:
+                        if rota['id'] == id_rota:
+                            rota_selecionada = rota
+
+    
+                    if rota_selecionada:
+                        assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
+                        client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+                        
+                        numero_assento = int(client.recv(1024).decode('utf-8').strip())
+
+                        #remove o assento da lista de disponiveis
+                        lock.acquire()
+                        if numero_assento in rota_selecionada['assentos-livres']:
+                            rota_selecionada['assentos-livres'].remove(numero_assento)
+                            client.send("Passagem comprada!".encode('utf-8'))
+                            
+                            # associar ao usuario aqui de alguma forma
+                        else:
+                            client.send("O assento não está mais disponível.".encode('utf-8'))
+                        lock.release()
+                    else:
+                        client.send("Rota não encontrada.".encode('utf-8'))
+
+                        
                 case "4":
                     client.send("closed".encode('utf-8'))
                     client.close()
