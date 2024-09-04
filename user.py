@@ -1,6 +1,6 @@
 class User:
     def __init__(self, name):
-        # passagem: (id_rota, numero_assento)
+        # passagem: rota:{}, assento:0
         self.name = name
         self.passagens = []
 
@@ -9,7 +9,7 @@ class User:
 
     def cancel_passagem(self, passagem):
         self.passagens.remove(passagem)
-        
 
-# u = User("leti")
-# u.set_passagem(1, 3)
+    def get_passagem(self, id):
+        return self.passagens[id]
+    

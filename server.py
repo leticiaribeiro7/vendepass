@@ -108,7 +108,7 @@ def handle_client(client):
                         idx_passagem = int(client.recv(1024).decode('utf-8').strip()) - 1
 
                         if idx_passagem < len(user.passagens):
-                            passagem_selecionada = user.passagens[idx_passagem]
+                            passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada)
 
                             client.send("Passagem cancelada com sucesso.".encode('utf-8'))
