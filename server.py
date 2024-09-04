@@ -93,15 +93,27 @@ def handle_client(client):
                         client.send("Rota não encontrada.".encode('utf-8'))
 
                 case "3":
-                    pass
-                    # mostra a rota e o assento comprados na lista passagens e cliente escolhe pelo id rota que ta la
-                    # busca a rota na lista de passagens e passa por param o obj passagem 
-                    #client.send(f"Escolha a passagem para cancelar: {}".encode('utf-8'))
 
-                    passagens = "\n".join(f"id: {passagem['rota']['id']} - assento: {passagem['assento']}" for passagem in user.passagens)
-                    client.send(passagens.encode('utf-8'))
+                    if not user.passagens:
+                        client.send("Você não tem passagens compradas.".encode('utf-8'))
+                    else:
+                        
+                        passagens = "\n".join(
+                            f"{i + 1}. - Rota: {' -> '.join(passagem['rota']['trechos'])} - Assento: {passagem['assento']}"
+                            for i, passagem in enumerate(user.passagens)
+                        )
+                        client.send(f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: ".encode('utf-8'))
                         
                     
+                        idx_passagem = int(client.recv(1024).decode('utf-8').strip()) - 1
+
+                        if idx_passagem < len(user.passagens):
+                            passagem_selecionada = user.passagens[idx_passagem]
+                            cancelar_passagem(user, passagem_selecionada)
+
+                            client.send("Passagem cancelada com sucesso.".encode('utf-8'))
+                        else:
+                            client.send("Passagem inválida.".encode('utf-8'))    
                         
                 case "4":
                     client.send("closed".encode('utf-8'))
@@ -109,17 +121,18 @@ def handle_client(client):
                     break
 
         except Exception as e:
-            print(f"Error when handling client: {e}")
+            print(f"Erro: {e}")
             client.close()
             break
 
 def cancelar_passagem(user, passagem):
     user.passagens.remove(passagem)
-    assento = passagem.assento
+    assento = passagem['assento']
 
     for rota in rotas:
-        if (passagem.rota == rota):
+        if (passagem['rota'] == rota):
             rota['assentos-livres'].append(assento)
+            rota['assentos-livres'].sort()
 
 
 def reserva_assento(rota_selecionada, numero_assento):
