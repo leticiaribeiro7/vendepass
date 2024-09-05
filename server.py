@@ -4,10 +4,6 @@ from user import User
 
 users = []
 
-# Tratamento quando não tiver mais assentos disponíveis
-# Travando no "Digite seu nome" quando entra 2 clientes no mesmo servidor
-# Exibir trechos em exibição e comprar
-
 rotas = [
     {'id': 1, 'trechos': ['SSA', 'SP'], 'tipo': 'direta', 'assentos-livres': [1, 2, 3]},
     {'id': 2, 'trechos': ['SSA', 'MG'], 'tipo': 'direta', 'assentos-livres': [1, 2, 4]},
@@ -21,7 +17,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5000))
+        server.bind(('localhost', 5000))
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -69,25 +65,29 @@ def handle_client(client):
                         
                     # se o id enviado existir, continua o fluxo mandando escolher assento
                     if rota_selecionada:
-                        assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
-                        client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
-                        
-                        numero_assento = int(client.recv(1024).decode('utf-8').strip())
+                        # verifica se há assentos disponíveis
+                        if not rota_selecionada['assentos-livres']:
+                            client.send("Não há mais assentos disponíveis nesta rota.".encode('utf-8'))
+                        else:
+                            assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
+                            client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+                            
+                            numero_assento = int(client.recv(1024).decode('utf-8').strip())
 
-                        # lock ate finalizar a compra do assento
-                        lock.acquire()
+                            # lock ate finalizar a compra do assento
+                            lock.acquire()
 
-                        if numero_assento in rota_selecionada['assentos-livres']:
-                            reserva_efetuada = reserva_assento(rota_selecionada, numero_assento)
+                            if numero_assento in rota_selecionada['assentos-livres']:
+                                reserva_efetuada = reserva_assento(rota_selecionada, numero_assento)
 
-                            if reserva_efetuada:
-                                user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
-                                print(user.name)
-                                client.send("Passagem comprada!".encode('utf-8'))
+                                if reserva_efetuada:
+                                    user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
+                                    print(user.name)
+                                    client.send("Passagem comprada!".encode('utf-8'))
 
-                        else: client.send("O assento não está mais disponível.".encode('utf-8'))
+                            else: client.send("O assento não está mais disponível.".encode('utf-8'))
 
-                        lock.release()
+                            lock.release()
 
                     else:
                         client.send("Rota não encontrada.".encode('utf-8'))

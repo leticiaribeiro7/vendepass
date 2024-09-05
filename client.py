@@ -5,13 +5,13 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client.connect(('0.0.0.0', 5000))
+        client.connect(('localhost', 5000))
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
         response = client.recv(1024).decode('utf-8')
         
-        print(f"Received from server: {response}")
+        #print(f"Received from server: {response}")   <-- tirar dps
 
     except Exception as e:
         return print(f"\n Não foi possível se conectar: {e}")
@@ -37,7 +37,7 @@ def run_client(client):
                 client.close()
                 break
 
-            print(f"Received from server: \n{response}")
+            #print(f"Received from server: \n{response}")   <-- tirar dps
 
         except Exception as e:
             print(f"Error: {e}")
