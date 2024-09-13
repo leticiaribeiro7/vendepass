@@ -5,7 +5,7 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client.connect(('0.0.0.0', 5000))
+        client.connect(('0.0.0.0', 5002))
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
@@ -37,11 +37,11 @@ def run_client(client):
                 client.close()
                 break
 
-            print(f"Received from server: \n{response}")
+            print(f"\n{response}")
 
         except Exception as e:
             print(f"Error: {e}")
-            return
+            break
         # finally:
         #     # close client socket (connection to the server)
         #     client.close()

@@ -1,27 +1,23 @@
 import socket
 import threading
+import json
+import traceback
+
 from user import User
 
 users = []
 
-# Tratamento quando não tiver mais assentos disponíveis
-# Travando no "Digite seu nome" quando entra 2 clientes no mesmo servidor
-# Exibir trechos em exibição e comprar
-
-rotas = [
-    {'id': 1, 'trechos': ['SSA', 'SP'], 'tipo': 'direta', 'assentos-livres': [1, 2, 3]},
-    {'id': 2, 'trechos': ['SSA', 'MG'], 'tipo': 'direta', 'assentos-livres': [1, 2, 4]},
-    {'id': 3, 'trechos': ['SP', 'RJ'], 'tipo': 'direta', 'assentos-livres': [1, 3, 5]},
-    {'id': 4, 'trechos': ['SSA', 'MG', 'SP', 'RJ'], 'tipo': 'trecho', 'assentos-livres': [1, 2, 3]}
-]
-
 lock = threading.Lock()
 
 def main():
+    
+    with open('data.json', 'r') as file:
+        rotas = json.load(file)
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5000))
+        server.bind(('0.0.0.0', 5002))
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -32,15 +28,25 @@ def main():
         client, address = server.accept()
         print(f"Conexão estabelecida com {address}")
 
-        thread = threading.Thread(target=handle_client, args=(client,))
+        thread = threading.Thread(target=handle_client, args=(client, rotas))
         thread.start()
 
-def handle_client(client):
+def handle_client(client, rotas):
     client.send("Digite seu nome".encode('utf-8'))
     name = client.recv(1024).decode('utf-8').strip()
 
-    user = User(name)
-    users.append(user)
+    user = None
+
+    # Recupera o usuario existente se o nome for igual, senão cria um novo
+    user_exist = find_user(name)
+
+    if user_exist:
+        user = user_exist
+    else:
+        user = User(name)
+        users.append(user)
+
+
 
     menu = send_menu()
     client.send(f"Bem-vindo {user.name}\n {menu}".encode('utf-8'))
@@ -51,11 +57,11 @@ def handle_client(client):
             match (request):
                 
                 case "1":
-                    rotas_disponiveis = get_rotas()
+                    rotas_disponiveis = get_rotas(rotas)
                     client.send(f"{rotas_disponiveis}".encode('utf-8'))
 
                 case "2":
-                    rotas_disponiveis = get_rotas()
+                    rotas_disponiveis = get_rotas(rotas)
                     client.send(f"{rotas_disponiveis}\nEscolha o número da rota correspondente: ".encode('utf-8'))
 
                     id_rota = int(client.recv(1024).decode('utf-8').strip())
@@ -78,7 +84,7 @@ def handle_client(client):
                         lock.acquire()
 
                         if numero_assento in rota_selecionada['assentos-livres']:
-                            reserva_efetuada = reserva_assento(rota_selecionada, numero_assento)
+                            reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
 
                             if reserva_efetuada:
                                 user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
@@ -109,7 +115,7 @@ def handle_client(client):
 
                         if idx_passagem < len(user.passagens):
                             passagem_selecionada = user.get_passagem(idx_passagem)
-                            cancelar_passagem(user, passagem_selecionada)
+                            cancelar_passagem(user, passagem_selecionada, rotas)
 
                             client.send("Passagem cancelada com sucesso.".encode('utf-8'))
                         else:
@@ -122,10 +128,11 @@ def handle_client(client):
 
         except Exception as e:
             print(f"Erro: {e}")
+            print(traceback.format_exc())
             client.close()
             break
 
-def cancelar_passagem(user, passagem):
+def cancelar_passagem(user, passagem, rotas):
     user.passagens.remove(passagem)
     assento = passagem['assento']
 
@@ -133,11 +140,23 @@ def cancelar_passagem(user, passagem):
         if (passagem['rota'] == rota):
             rota['assentos-livres'].append(assento)
             rota['assentos-livres'].sort()
+## cancelar tbm da rota com trecho
 
-
-def reserva_assento(rota_selecionada, numero_assento):
+def reserva_assento(rota_selecionada, numero_assento, rotas):
+    
     if rota_selecionada['tipo'] == 'direta':
         rota_selecionada['assentos-livres'].remove(numero_assento)
+
+        for rota in rotas:
+            for i in range(len(rota['trechos']) - 1):
+                origem = rota['trechos'][i]
+                destino = rota['trechos'][i + 1]
+                print(origem)
+                print(destino)
+            
+                if [origem, destino] == rota_selecionada['trechos']:
+                    if numero_assento in rota['assentos-livres']:
+                        rota['assentos-livres'].remove(numero_assento)
 
         return True
     
@@ -152,18 +171,18 @@ def reserva_assento(rota_selecionada, numero_assento):
                 origem_trecho = rota_selecionada['trechos'][i]
                 destino_trecho = rota_selecionada['trechos'][i + 1]
 
-            # Bloqueia o assento nas rotas diretas correspondentes a cada trecho
-            for rota in rotas:
-                if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
-                    if numero_assento in rota['assentos-livres']:
-                        rota['assentos-livres'].remove(numero_assento)
+                # Bloqueia o assento nas rotas diretas correspondentes a cada trecho
+                for rota in rotas:
+                    if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
+                        if numero_assento in rota['assentos-livres']:
+                            rota['assentos-livres'].remove(numero_assento)
 
             # Verifica se o assento foi bloqueado com sucesso na rota selecionada
             return numero_assento not in rota_selecionada['assentos-livres']
     return False
 
 
-def get_rotas():
+def get_rotas(rotas):
     return "\n".join(
         f"{rota['id']}. {' -> '.join(rota['trechos'])} ({rota['tipo']})"
         for rota in rotas
@@ -178,6 +197,13 @@ def send_menu():
         "4. Sair\n"
         "Digite a opção desejada: "
     )
+
+
+def find_user(name):
+    for usuario in users:
+        if name == usuario.name:
+            return usuario
+
 
 if __name__ == "__main__":
     main()

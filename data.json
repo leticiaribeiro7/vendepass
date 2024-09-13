@@ -1,0 +1,52 @@
+[
+    {
+        "id": 1,
+        "trechos": [
+            "SSA",
+            "SP"
+        ],
+        "tipo": "direta",
+        "assentos-livres": [1, 2, 3]
+    },
+    {
+        "id": 2,
+        "trechos": [
+            "SSA",
+            "MG"
+        ],
+        "tipo": "direta",
+        "assentos-livres": [
+            1,
+            2,
+            3
+        ]
+    },
+    {
+        "id": 3,
+        "trechos": [
+            "SP",
+            "RJ"
+        ],
+        "tipo": "direta",
+        "assentos-livres": [
+            1,
+            2,
+            3
+        ]
+    },
+    {
+        "id": 4,
+        "trechos": [
+            "SSA",
+            "MG",
+            "SP",
+            "RJ"
+        ],
+        "tipo": "trecho",
+        "assentos-livres": [
+            1,
+            2,
+            3
+        ]
+    }
+]
