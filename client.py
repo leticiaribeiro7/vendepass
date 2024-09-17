@@ -39,31 +39,13 @@ def run_client(client):
 
             print(f"\n{response}")
 
+        except (ConnectionResetError, BrokenPipeError):
+            print("Conexão com o servidor foi perdida.")
+            client.close()
+            break
         except Exception as e:
             print(f"Error: {e}")
             break
-        # finally:
-        #     # close client socket (connection to the server)
-        #     client.close()
-        #     print("Connection to server closed")
-
-# def receiveMessages(client):
-#     try:
-#         msg = client.recv(1024).decode('utf-8')
-#         if msg:
-#             print(msg)
-#     except Exception as e:
-#         print(f'Erro ao receber mensagem: {e}')
-
-
-# def sendMessages(client):
-#     while True:
-#         try:
-#             msg = input()
-#             client.send(msg.encode('utf-8'))
-#         except Exception as e:
-#             print(f'Erro ao enviar mensagem: {e}')
-#             break
 
 
 if __name__ == "__main__":

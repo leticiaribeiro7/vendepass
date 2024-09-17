@@ -2,12 +2,15 @@ import socket
 import threading
 import json
 import traceback
+import time
 
 from user import User
 
 users = []
 
 lock = threading.Lock()
+
+TIMEOUT = 60
 
 def main():
     
@@ -31,7 +34,9 @@ def main():
         thread = threading.Thread(target=handle_client, args=(client, rotas))
         thread.start()
 
+
 def handle_client(client, rotas):
+    client.settimeout(TIMEOUT)
     client.send("Digite seu nome".encode('utf-8'))
     name = client.recv(1024).decode('utf-8').strip()
 
@@ -46,16 +51,25 @@ def handle_client(client, rotas):
         user = User(name)
         users.append(user)
 
-
-
     menu = send_menu()
-    client.send(f"Bem-vindo {user.name}\n {menu}".encode('utf-8'))
+    client.send(f"Bem-vindo, {user.name}\n {menu}".encode('utf-8'))
 
     while True:
         try:
             request = client.recv(1024).decode('utf-8')
-            match (request):
-                
+            if not request:
+                break
+
+            # reseta o tempo a cada request
+            client.settimeout(TIMEOUT)
+
+# Tratamento caso digitem uma entrada errada no menu inicial
+#           if request not in {"1", "2", "3", "4"}:
+#                client.send("Opção inválida. Por favor, escolha uma opção do menu.".encode('utf-8'))
+#                client.send(send_menu().encode('utf-8'))
+#               continue
+            
+            match (request):     
                 case "1":
                     rotas_disponiveis = get_rotas(rotas)
                     client.send(f"{rotas_disponiveis}".encode('utf-8'))
@@ -126,21 +140,44 @@ def handle_client(client, rotas):
                     client.close()
                     break
 
+
+        except socket.timeout:
+            print(f"{user.name} teve a conexão encerrada por inatividade.")
+            client.send("Está a muito tempo inativo(a). Fechando conexão...".encode('utf-8'))
+            time.sleep(1)
+            client.close()
+            break
         except Exception as e:
             print(f"Erro: {e}")
             print(traceback.format_exc())
             client.close()
             break
 
+
 def cancelar_passagem(user, passagem, rotas):
     user.passagens.remove(passagem)
     assento = passagem['assento']
+    rota_cancelada = passagem['rota']
 
+    # Atualiza as rotas afetadas
     for rota in rotas:
-        if (passagem['rota'] == rota):
-            rota['assentos-livres'].append(assento)
-            rota['assentos-livres'].sort()
-## cancelar tbm da rota com trecho
+        if rota['id'] == rota_cancelada['id']:
+            # Adiciona o assento de volta na rota cancelada
+            if assento not in rota['assentos-livres']:
+                rota['assentos-livres'].append(assento)
+                rota['assentos-livres'].sort()
+        
+        # Se a rota cancelada é do tipo 'trecho', atualize também as rotas diretas correspondentes
+        if rota_cancelada['tipo'] == 'trecho':
+            for i in range(len(rota_cancelada['trechos']) - 1):
+                origem_trecho = rota_cancelada['trechos'][i]
+                destino_trecho = rota_cancelada['trechos'][i + 1]
+
+                if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
+                    if assento not in rota['assentos-livres']:
+                        rota['assentos-livres'].append(assento)
+                        rota['assentos-livres'].sort()
+
 
 def reserva_assento(rota_selecionada, numero_assento, rotas):
     
@@ -191,10 +228,15 @@ def get_rotas(rotas):
 def send_menu():
     return (
         "\n--- VendePass ---\n"
+        "=======================\n"
         "1. Ver rotas\n"
+        "=======================\n"
         "2. Comprar passagem\n"
+        "=======================\n"
         "3. Cancelar passagem\n"
+        "=======================\n"
         "4. Sair\n"
+        "=======================\n"
         "Digite a opção desejada: "
     )
 
