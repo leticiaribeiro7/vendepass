@@ -1,7 +1,7 @@
 import socket
 import threading
 import json
-import traceback
+import os
 import time
 
 from user import User
@@ -10,7 +10,7 @@ users = []
 
 lock = threading.Lock()
 
-TIMEOUT = 60
+TIMEOUT = 10
 
 def main():
     
@@ -20,7 +20,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('localhost', 5002))
+        server.bind(('0.0.0.0', 5000))
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -62,12 +62,6 @@ def handle_client(client, rotas):
 
             # reseta o tempo a cada request
             client.settimeout(TIMEOUT)
-
-# Tratamento caso digitem uma entrada errada no menu inicial
-#           if request not in {"1", "2", "3", "4"}:
-#                client.send("Opção inválida. Por favor, escolha uma opção do menu.".encode('utf-8'))
-#                client.send(send_menu().encode('utf-8'))
-#               continue
             
             match (request):     
                 case "1":
@@ -89,25 +83,32 @@ def handle_client(client, rotas):
                         
                     # se o id enviado existir, continua o fluxo mandando escolher assento
                     if rota_selecionada:
-                        assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
-                        client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
-                        
-                        numero_assento = int(client.recv(1024).decode('utf-8').strip())
 
-                        # lock ate finalizar a compra do assento
-                        lock.acquire()
+                        if not rota_selecionada['assentos-livres']:
+                            client.send(f"Não há mais assentos disponíveis nesta rota. \n {menu}".encode('utf-8'))
 
-                        if numero_assento in rota_selecionada['assentos-livres']:
-                            reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
+                        else:
+                            assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
+                            client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+                            
+                            numero_assento = int(client.recv(1024).decode('utf-8').strip())
 
-                            if reserva_efetuada:
-                                user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
-                                print(user.name)
-                                client.send("Passagem comprada!".encode('utf-8'))
+                            # lock ate finalizar a compra do assento
+                            lock.acquire()
 
-                        else: client.send("O assento não está mais disponível.".encode('utf-8'))
+                            if numero_assento in rota_selecionada['assentos-livres']:
+                                reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
 
-                        lock.release()
+                                if reserva_efetuada:
+                                    user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
+                                    print(user.name)
+                                    client.send(f"Passagem comprada!\n {menu}".encode('utf-8'))
+                                    time.sleep(3)
+                                    os.system('cls')
+
+                            else: client.send("O assento não está mais disponível.".encode('utf-8'))
+
+                            lock.release()
 
                     else:
                         client.send("Rota não encontrada.".encode('utf-8'))
@@ -131,7 +132,7 @@ def handle_client(client, rotas):
                             passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada, rotas)
 
-                            client.send("Passagem cancelada com sucesso.".encode('utf-8'))
+                            client.send(f"Passagem cancelada com sucesso.\n {menu}".encode('utf-8'))
                         else:
                             client.send("Passagem inválida.".encode('utf-8'))    
                         
@@ -140,16 +141,20 @@ def handle_client(client, rotas):
                     client.close()
                     break
 
+                case _:
+                    client.send(f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu}".encode('utf-8'))
+                  
+                     
+
 
         except socket.timeout:
-            print(f"{user.name} teve a conexão encerrada por inatividade.")
             client.send("Está a muito tempo inativo(a). Fechando conexão...".encode('utf-8'))
-            time.sleep(1)
+            print(f"{user.name} teve a conexão encerrada por inatividade.")
+            time.sleep(2)
             client.close()
             break
         except Exception as e:
             print(f"Erro: {e}")
-            print(traceback.format_exc())
             client.close()
             break
 
@@ -177,6 +182,18 @@ def cancelar_passagem(user, passagem, rotas):
                     if assento not in rota['assentos-livres']:
                         rota['assentos-livres'].append(assento)
                         rota['assentos-livres'].sort()
+        
+        # Se a rota cancelada é do tipo 'direta', atualize também as rotas de trechos correspondentes
+        if rota_cancelada['tipo'] == 'direta':
+            for i in range(len(rota_cancelada['trechos']) - 1):
+                origem_trecho = rota_cancelada['trechos'][i]
+                destino_trecho = rota_cancelada['trechos'][i + 1]
+
+                # Verifica todas as rotas do tipo 'trecho' que correspondam a esses dois pontos
+                if rota['tipo'] == 'trecho' and origem_trecho in rota['trechos'] and destino_trecho in rota['trechos']:
+                    if assento not in rota['assentos-livres']:
+                        rota['assentos-livres'].append(assento)
+                        rota['assentos-livres'].sort()
 
 
 def reserva_assento(rota_selecionada, numero_assento, rotas):
@@ -188,8 +205,6 @@ def reserva_assento(rota_selecionada, numero_assento, rotas):
             for i in range(len(rota['trechos']) - 1):
                 origem = rota['trechos'][i]
                 destino = rota['trechos'][i + 1]
-                print(origem)
-                print(destino)
             
                 if [origem, destino] == rota_selecionada['trechos']:
                     if numero_assento in rota['assentos-livres']:

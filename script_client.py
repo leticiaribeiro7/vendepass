@@ -9,7 +9,7 @@ def clients_test(client_id):
     try:
         # Conecta ao servidor
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(('localhost', 5002))
+        client_socket.connect(('0.0.0.0', 5000))
 
         # Recebe mensagem de boas-vindas e digita o nome do cliente
         nome_msg = client_socket.recv(1024).decode('utf-8')
