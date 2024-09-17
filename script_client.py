@@ -9,7 +9,7 @@ def clients_test(client_id):
     try:
         # Conecta ao servidor
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(('localhost', 5000))
+        client_socket.connect(('localhost', 5002))
 
         # Recebe mensagem de boas-vindas e digita o nome do cliente
         nome_msg = client_socket.recv(1024).decode('utf-8')
@@ -21,10 +21,14 @@ def clients_test(client_id):
         print(f"[Cliente {client_id}] recebeu o menu:\n{menu_msg}\n")
         client_socket.send("2".encode('utf-8'))
 
-        # Recebe a lista de rotas e escolhe uma rota (rota 1)
+        # Recebe a lista de rotas e escolhe uma rota (se for par, escolhe rota 4. ímpar, rota 3)
         rotas_msg = client_socket.recv(1024).decode('utf-8')
         print(f"[Cliente {client_id}] recebeu as rotas:\n{rotas_msg}\n")
-        client_socket.send("1".encode('utf-8'))  
+        if int(client_id) % 2 == 0:
+            client_socket.send("4".encode('utf-8'))
+        else:
+            client_socket.send("3".encode('utf-8'))  
+         
 
         # Recebe lista de assentos e escolhe um (assento 1)
         assentos_msg = client_socket.recv(1024).decode('utf-8')

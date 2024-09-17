@@ -5,7 +5,7 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client.connect(('0.0.0.0', 5002))
+        client.connect(('localhost', 5002))
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor

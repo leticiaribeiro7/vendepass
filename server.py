@@ -17,7 +17,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5002))
+        server.bind(('localhost', 5002))
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
