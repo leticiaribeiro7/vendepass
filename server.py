@@ -10,7 +10,7 @@ users = []
 
 lock = threading.Lock()
 
-TIMEOUT = 10
+TIMEOUT = 120
 
 def main():
     
@@ -32,8 +32,22 @@ def main():
         print(f"Conexão estabelecida com {address}")
 
         thread = threading.Thread(target=handle_client, args=(client, rotas))
+        #threadConect = threading.Thread(target=conexao, args=(client,), daemon=True)
         thread.start()
+        #threadConect.start()
 
+
+# def conexao(client):
+#     while True:
+#         client.send('ping'.encode('utf-8'))
+#         res = client.recv(1024).decode('utf-8')
+
+#         if res != 'pong':
+#             print('Conexão interrompida por erro no servidor.')
+#             client.close()
+#             break
+
+#         time.sleep(2)
 
 def handle_client(client, rotas):
     client.settimeout(TIMEOUT)
@@ -104,9 +118,9 @@ def handle_client(client, rotas):
                                     print(user.name)
                                     client.send(f"Passagem comprada!\n {menu}".encode('utf-8'))
                                     time.sleep(3)
-                                    os.system('cls')
+                                    os.system('clear')
 
-                            else: client.send("O assento não está mais disponível.".encode('utf-8'))
+                            else: client.send("O assento não está disponível.".encode('utf-8'))
 
                             lock.release()
 
@@ -148,9 +162,8 @@ def handle_client(client, rotas):
 
 
         except socket.timeout:
-            client.send("Está a muito tempo inativo(a). Fechando conexão...".encode('utf-8'))
-            print(f"{user.name} teve a conexão encerrada por inatividade.")
-            time.sleep(2)
+            printf(f"{user.name} desconectado por inatividade")
+            client.send("timeout".encode('utf-8'))
             client.close()
             break
         except Exception as e:
@@ -167,7 +180,7 @@ def cancelar_passagem(user, passagem, rotas):
     # Atualiza as rotas afetadas
     for rota in rotas:
         if rota['id'] == rota_cancelada['id']:
-            # Adiciona o assento de volta na rota cancelada
+            # Adiciona o assento da cancelada de volta nas rotas
             if assento not in rota['assentos-livres']:
                 rota['assentos-livres'].append(assento)
                 rota['assentos-livres'].sort()
@@ -185,15 +198,13 @@ def cancelar_passagem(user, passagem, rotas):
         
         # Se a rota cancelada é do tipo 'direta', atualize também as rotas de trechos correspondentes
         if rota_cancelada['tipo'] == 'direta':
-            for i in range(len(rota_cancelada['trechos']) - 1):
-                origem_trecho = rota_cancelada['trechos'][i]
-                destino_trecho = rota_cancelada['trechos'][i + 1]
+            origem_trecho = rota_cancelada['trechos'][0]
+            destino_trecho = rota_cancelada['trechos'][1]
 
-                # Verifica todas as rotas do tipo 'trecho' que correspondam a esses dois pontos
-                if rota['tipo'] == 'trecho' and origem_trecho in rota['trechos'] and destino_trecho in rota['trechos']:
-                    if assento not in rota['assentos-livres']:
-                        rota['assentos-livres'].append(assento)
-                        rota['assentos-livres'].sort()
+            if rota['tipo'] == 'trecho' and origem_trecho in rota['trechos'] and destino_trecho in rota['trechos']:
+                if assento not in rota['assentos-livres']:
+                    rota['assentos-livres'].append(assento)
+                    rota['assentos-livres'].sort()
 
 
 def reserva_assento(rota_selecionada, numero_assento, rotas):
@@ -201,6 +212,7 @@ def reserva_assento(rota_selecionada, numero_assento, rotas):
     if rota_selecionada['tipo'] == 'direta':
         rota_selecionada['assentos-livres'].remove(numero_assento)
 
+        # bloqueia o assento nas rotas que tem trecho tbm
         for rota in rotas:
             for i in range(len(rota['trechos']) - 1):
                 origem = rota['trechos'][i]
@@ -213,24 +225,23 @@ def reserva_assento(rota_selecionada, numero_assento, rotas):
         return True
     
     elif rota_selecionada['tipo'] == 'trecho':
-            if numero_assento in rota_selecionada['assentos-livres']:
-                rota_selecionada['assentos-livres'].remove(numero_assento)
+        rota_selecionada['assentos-livres'].remove(numero_assento)
 
-            trechos_count = len(rota_selecionada['trechos'])
+        trechos_count = len(rota_selecionada['trechos'])
 
-            # Itera por cada trecho da rota
-            for i in range(trechos_count - 1):
-                origem_trecho = rota_selecionada['trechos'][i]
-                destino_trecho = rota_selecionada['trechos'][i + 1]
+        # Itera por cada trecho da rota
+        for i in range(trechos_count - 1):
+            origem_trecho = rota_selecionada['trechos'][i]
+            destino_trecho = rota_selecionada['trechos'][i + 1]
 
-                # Bloqueia o assento nas rotas diretas correspondentes a cada trecho
-                for rota in rotas:
-                    if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
-                        if numero_assento in rota['assentos-livres']:
-                            rota['assentos-livres'].remove(numero_assento)
+            # Bloqueia o assento nas rotas diretas correspondentes a cada trecho
+            for rota in rotas:
+                if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
+                    if numero_assento in rota['assentos-livres']:
+                        rota['assentos-livres'].remove(numero_assento)
 
-            # Verifica se o assento foi bloqueado com sucesso na rota selecionada
-            return numero_assento not in rota_selecionada['assentos-livres']
+        # Verifica se o assento foi bloqueado com sucesso na rota selecionada
+        return numero_assento not in rota_selecionada['assentos-livres']
     return False
 
 

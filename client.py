@@ -1,4 +1,6 @@
 import socket
+import threading
+import time
 
 def main():
     
@@ -16,6 +18,7 @@ def main():
     except Exception as e:
         return print(f"\n Não foi possível se conectar: {e}")
 
+   # threading.Thread(target=conexao, args=(client,), daemon=True).start()
     run_client(client)
 
 
@@ -34,6 +37,12 @@ def run_client(client):
 
             # se server enviar closed, sai do loop e fecha a conexão
             if response.lower() == "closed":
+                print("Conexão finalizada.")
+                client.close()
+                break
+            
+            elif response.lower() == "timeout":
+                print("Conexão finalizada por inatividade.")
                 client.close()
                 break
 
@@ -48,5 +57,17 @@ def run_client(client):
             break
 
 
+# def conexao(client):
+#     while True:
+#         res = client.recv(1024).decode('utf-8')
+#         client.send('pong'.encode('utf-8'))
+
+#         if res != 'ping':
+#             print('Conexão interrompida por erro no servidor.')
+#             client.close()
+#             break
+
+#         time.sleep(5)
+        
 if __name__ == "__main__":
     main()
