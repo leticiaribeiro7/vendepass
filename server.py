@@ -32,22 +32,8 @@ def main():
         print(f"Conexão estabelecida com {address}")
 
         thread = threading.Thread(target=handle_client, args=(client, rotas))
-        #threadConect = threading.Thread(target=conexao, args=(client,), daemon=True)
         thread.start()
-        #threadConect.start()
 
-
-# def conexao(client):
-#     while True:
-#         client.send('ping'.encode('utf-8'))
-#         res = client.recv(1024).decode('utf-8')
-
-#         if res != 'pong':
-#             print('Conexão interrompida por erro no servidor.')
-#             client.close()
-#             break
-
-#         time.sleep(2)
 
 def handle_client(client, rotas):
     client.settimeout(TIMEOUT)
@@ -73,10 +59,10 @@ def handle_client(client, rotas):
             request = client.recv(1024).decode('utf-8')
             if not request:
                 break
-
+                
             # reseta o tempo a cada request
             client.settimeout(TIMEOUT)
-            
+
             match (request):     
                 case "1":
                     rotas_disponiveis = get_rotas(rotas)
@@ -86,8 +72,9 @@ def handle_client(client, rotas):
                     rotas_disponiveis = get_rotas(rotas)
                     client.send(f"{rotas_disponiveis}\nEscolha o número da rota correspondente: ".encode('utf-8'))
 
-                    id_rota = int(client.recv(1024).decode('utf-8').strip())
-
+                    rota = client.recv(1024).decode('utf-8').strip()
+                    id_rota = int(rota) if rota.isdigit() else None
+                    
                     # busca a rota na lista pelo id
                     rota_selecionada = None
                     for rota in rotas:
@@ -105,7 +92,9 @@ def handle_client(client, rotas):
                             assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
                             client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
                             
-                            numero_assento = int(client.recv(1024).decode('utf-8').strip())
+                            assento = client.recv(1024).decode('utf-8').strip()
+
+                            numero_assento = int(assento) if assento.isdigit() else None
 
                             # lock ate finalizar a compra do assento
                             lock.acquire()
@@ -113,19 +102,18 @@ def handle_client(client, rotas):
                             if numero_assento in rota_selecionada['assentos-livres']:
                                 reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
 
+                                # associa a passagem ao user respectivo
                                 if reserva_efetuada:
                                     user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
                                     print(user.name)
                                     client.send(f"Passagem comprada!\n {menu}".encode('utf-8'))
-                                    time.sleep(3)
-                                    os.system('clear')
 
-                            else: client.send("O assento não está disponível.".encode('utf-8'))
+                            else: client.send("O assento não está disponível ou é inválido.".encode('utf-8'))
 
                             lock.release()
 
                     else:
-                        client.send("Rota não encontrada.".encode('utf-8'))
+                        client.send("Rota não encontrada ou inválida.".encode('utf-8'))
 
                 case "3":
 
@@ -139,8 +127,9 @@ def handle_client(client, rotas):
                         )
                         client.send(f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: ".encode('utf-8'))
                         
-                    
-                        idx_passagem = int(client.recv(1024).decode('utf-8').strip()) - 1
+                        num_passagem = client.recv(1024).decode('utf-8').strip()
+                        idx_passagem = (int(num_passagem) - 1) if num_passagem.isdigit() else None
+
 
                         if idx_passagem < len(user.passagens):
                             passagem_selecionada = user.get_passagem(idx_passagem)
@@ -158,11 +147,10 @@ def handle_client(client, rotas):
                 case _:
                     client.send(f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu}".encode('utf-8'))
                   
-                     
-
+    
 
         except socket.timeout:
-            printf(f"{user.name} desconectado por inatividade")
+            print(f"{user.name} desconectado por inatividade")
             client.send("timeout".encode('utf-8'))
             client.close()
             break
@@ -185,7 +173,7 @@ def cancelar_passagem(user, passagem, rotas):
                 rota['assentos-livres'].append(assento)
                 rota['assentos-livres'].sort()
         
-        # Se a rota cancelada é do tipo 'trecho', atualize também as rotas diretas correspondentes
+        # Se a rota cancelada é do tipo 'trecho', atualiza as rotas diretas correspondentes
         if rota_cancelada['tipo'] == 'trecho':
             for i in range(len(rota_cancelada['trechos']) - 1):
                 origem_trecho = rota_cancelada['trechos'][i]
@@ -196,7 +184,7 @@ def cancelar_passagem(user, passagem, rotas):
                         rota['assentos-livres'].append(assento)
                         rota['assentos-livres'].sort()
         
-        # Se a rota cancelada é do tipo 'direta', atualize também as rotas de trechos correspondentes
+        # Se a rota cancelada é do tipo 'direta', atualiza as rotas de trechos correspondentes
         if rota_cancelada['tipo'] == 'direta':
             origem_trecho = rota_cancelada['trechos'][0]
             destino_trecho = rota_cancelada['trechos'][1]
@@ -253,7 +241,7 @@ def get_rotas(rotas):
 
 def send_menu():
     return (
-        "\n--- VendePass ---\n"
+        "\n \033[0;32m VendePass   \n"
         "=======================\n"
         "1. Ver rotas\n"
         "=======================\n"
@@ -266,12 +254,10 @@ def send_menu():
         "Digite a opção desejada: "
     )
 
-
 def find_user(name):
     for usuario in users:
         if name == usuario.name:
             return usuario
-
 
 if __name__ == "__main__":
     main()

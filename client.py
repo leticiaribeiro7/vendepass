@@ -18,7 +18,6 @@ def main():
     except Exception as e:
         return print(f"\n Não foi possível se conectar: {e}")
 
-   # threading.Thread(target=conexao, args=(client,), daemon=True).start()
     run_client(client)
 
 
@@ -34,6 +33,9 @@ def run_client(client):
             response = client.recv(1024)
             response = response.decode("utf-8")
 
+            # se a resposta estiver vazia é pq o server caiu
+            if not response:
+                raise ConnectionResetError
 
             # se server enviar closed, sai do loop e fecha a conexão
             if response.lower() == "closed":
@@ -42,32 +44,19 @@ def run_client(client):
                 break
             
             elif response.lower() == "timeout":
-                print("Conexão finalizada por inatividade.")
+                print("\033[0;31m Conexão finalizada por inatividade.")
                 client.close()
                 break
 
             print(f"\n{response}")
 
-        except (ConnectionResetError, BrokenPipeError):
+        except (ConnectionResetError, BrokenPipeError, OSError):
             print("Conexão com o servidor foi perdida.")
             client.close()
             break
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Erro: {e}")
             break
 
-
-# def conexao(client):
-#     while True:
-#         res = client.recv(1024).decode('utf-8')
-#         client.send('pong'.encode('utf-8'))
-
-#         if res != 'ping':
-#             print('Conexão interrompida por erro no servidor.')
-#             client.close()
-#             break
-
-#         time.sleep(5)
-        
 if __name__ == "__main__":
     main()
