@@ -15,11 +15,7 @@
             "MG"
         ],
         "tipo": "direta",
-        "assentos-livres": [
-            1,
-            2,
-            3
-        ]
+        "assentos-livres": [1, 2, 3]
     },
     {
         "id": 3,
@@ -28,11 +24,7 @@
             "RJ"
         ],
         "tipo": "direta",
-        "assentos-livres": [
-            1,
-            2,
-            3
-        ]
+        "assentos-livres": [1, 2, 3]
     },
     {
         "id": 4,
@@ -43,10 +35,6 @@
             "RJ"
         ],
         "tipo": "trecho",
-        "assentos-livres": [
-            1,
-            2,
-            3
-        ]
+        "assentos-livres": [1, 2, 3]
     }
 ]

@@ -40,19 +40,12 @@ def handle_client(client, rotas):
     client.send("Digite seu nome".encode('utf-8'))
     name = client.recv(1024).decode('utf-8').strip()
 
-    user = None
+    user = get_or_create_user(name)
 
     # Recupera o usuario existente se o nome for igual, senão cria um novo
-    user_exist = find_user(name)
 
-    if user_exist:
-        user = user_exist
-    else:
-        user = User(name)
-        users.append(user)
-
-    menu = send_menu()
-    client.send(f"Bem-vindo, {user.name}\n {menu}".encode('utf-8'))
+    #menu = menu()
+    client.send(f"Bem-vindo, {user.name}\n {menu()}".encode('utf-8'))
 
     while True:
         try:
@@ -65,11 +58,11 @@ def handle_client(client, rotas):
 
             match (request):     
                 case "1":
-                    rotas_disponiveis = get_rotas(rotas)
+                    rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(f"{rotas_disponiveis}".encode('utf-8'))
 
                 case "2":
-                    rotas_disponiveis = get_rotas(rotas)
+                    rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(f"{rotas_disponiveis}\nEscolha o número da rota correspondente: ".encode('utf-8'))
 
                     rota = client.recv(1024).decode('utf-8').strip()
@@ -94,7 +87,7 @@ def handle_client(client, rotas):
                             
                             assento = client.recv(1024).decode('utf-8').strip()
 
-                            numero_assento = int(assento) if assento.isdigit() else None
+                            numero_assento = int(assento) if assento.isdigit() else 0
 
                             # lock ate finalizar a compra do assento
                             lock.acquire()
@@ -105,8 +98,8 @@ def handle_client(client, rotas):
                                 # associa a passagem ao user respectivo
                                 if reserva_efetuada:
                                     user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
-                                    print(user.name)
-                                    client.send(f"Passagem comprada!\n {menu}".encode('utf-8'))
+                                    print(f"{user.name} comprou a passagem {rota_selecionada['trechos']}")
+                                    client.send(f"Passagem comprada!\n {menu()}".encode('utf-8'))
 
                             else: client.send("O assento não está disponível ou é inválido.".encode('utf-8'))
 
@@ -121,21 +114,18 @@ def handle_client(client, rotas):
                         client.send("Você não tem passagens compradas.".encode('utf-8'))
                     else:
                         
-                        passagens = "\n".join(
-                            f"{i + 1}. - Rota: {' -> '.join(passagem['rota']['trechos'])} - Assento: {passagem['assento']}"
-                            for i, passagem in enumerate(user.passagens)
-                        )
+                        passagens = get_formatted_tickets(user)
                         client.send(f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: ".encode('utf-8'))
                         
                         num_passagem = client.recv(1024).decode('utf-8').strip()
-                        idx_passagem = (int(num_passagem) - 1) if num_passagem.isdigit() else None
+                        idx_passagem = (int(num_passagem) - 1) if num_passagem.isdigit() else 0
 
 
-                        if idx_passagem < len(user.passagens):
+                        if idx_passagem < len(user.passagens) and idx_passagem > 0:
                             passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada, rotas)
 
-                            client.send(f"Passagem cancelada com sucesso.\n {menu}".encode('utf-8'))
+                            client.send(f"Passagem cancelada com sucesso.\n {menu()}".encode('utf-8'))
                         else:
                             client.send("Passagem inválida.".encode('utf-8'))    
                         
@@ -145,7 +135,7 @@ def handle_client(client, rotas):
                     break
 
                 case _:
-                    client.send(f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu}".encode('utf-8'))
+                    client.send(f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu()}".encode('utf-8'))
                   
     
 
@@ -233,25 +223,49 @@ def reserva_assento(rota_selecionada, numero_assento, rotas):
     return False
 
 
-def get_rotas(rotas):
+def get_formatted_routes(rotas):
     return "\n".join(
         f"{rota['id']}. {' -> '.join(rota['trechos'])} ({rota['tipo']})"
         for rota in rotas
     )
 
-def send_menu():
+def get_formatted_tickets(user):
+    return "\n".join(
+            f"{i + 1}. Rota: {' -> '.join(passagem['rota']['trechos'])} - Assento: {passagem['assento']}"
+            for i, passagem in enumerate(user.passagens)
+        )
+
+def get_or_create_user(name):
+    for user in users:
+        if name == user.name:
+            return user
+
+    user = User(name)
+    users.append(user)
+    return user
+
+def menu():
+    negrito = '\033[1m'
+    padrao = '\033[0m'
+    verde = '\033[0;32m'
+    azul = '\033[0;36m'
+
     return (
-        "\n \033[0;32m VendePass   \n"
-        "=======================\n"
-        "1. Ver rotas\n"
-        "=======================\n"
-        "2. Comprar passagem\n"
-        "=======================\n"
-        "3. Cancelar passagem\n"
-        "=======================\n"
-        "4. Sair\n"
-        "=======================\n"
-        "Digite a opção desejada: "
+        f'''\n 
+        {negrito}{azul}VendePass{padrao}
+        {verde} 
+        =======================
+        1. Ver rotas
+        =======================
+        2. Comprar passagem
+        =======================
+        3. Ver passagens compradas
+        =======================
+        4. Cancelar passagem
+        =======================
+        5. Sair
+        =======================
+        Digite a opção desejada: '''
     )
 
 def find_user(name):
