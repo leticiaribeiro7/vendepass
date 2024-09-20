@@ -42,9 +42,6 @@ def handle_client(client, rotas):
 
     user = get_or_create_user(name)
 
-    # Recupera o usuario existente se o nome for igual, senão cria um novo
-
-    #menu = menu()
     client.send(f"Bem-vindo, {user.name}\n {menu()}".encode('utf-8'))
 
     while True:
@@ -69,46 +66,15 @@ def handle_client(client, rotas):
                     id_rota = int(rota) if rota.isdigit() else None
                     
                     # busca a rota na lista pelo id
-                    rota_selecionada = None
-                    for rota in rotas:
-                        if rota['id'] == id_rota:
-                            rota_selecionada = rota
-                            break
-                        
-                    # se o id enviado existir, continua o fluxo mandando escolher assento
-                    if rota_selecionada:
+                    rota_selecionada = get_route(rotas, id_rota)
 
-                        if not rota_selecionada['assentos-livres']:
-                            client.send(f"Não há mais assentos disponíveis nesta rota. \n {menu}".encode('utf-8'))
-
-                        else:
-                            assentos = ', '.join(str(assento) for assento in rota_selecionada['assentos-livres'])
-                            client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
-                            
-                            assento = client.recv(1024).decode('utf-8').strip()
-
-                            numero_assento = int(assento) if assento.isdigit() else 0
-
-                            # lock ate finalizar a compra do assento
-                            lock.acquire()
-
-                            if numero_assento in rota_selecionada['assentos-livres']:
-                                reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
-
-                                # associa a passagem ao user respectivo
-                                if reserva_efetuada:
-                                    user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
-                                    print(f"{user.name} comprou a passagem {rota_selecionada['trechos']}")
-                                    client.send(f"Passagem comprada!\n {menu()}".encode('utf-8'))
-
-                            else: client.send("O assento não está disponível ou é inválido.".encode('utf-8'))
-
-                            lock.release()
-
-                    else:
-                        client.send("Rota não encontrada ou inválida.".encode('utf-8'))
-
+                    comprar_passagem(rota_selecionada, client, user, rotas, menu)
+                 
                 case "3":
+                    passagens = get_formatted_tickets(user)
+                    client.send(passagens.encode('utf-8'))
+
+                case "4":
 
                     if not user.passagens:
                         client.send("Você não tem passagens compradas.".encode('utf-8'))
@@ -121,7 +87,7 @@ def handle_client(client, rotas):
                         idx_passagem = (int(num_passagem) - 1) if num_passagem.isdigit() else 0
 
 
-                        if idx_passagem < len(user.passagens) and idx_passagem > 0:
+                        if idx_passagem < len(user.passagens) and idx_passagem >= 0:
                             passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada, rotas)
 
@@ -129,7 +95,7 @@ def handle_client(client, rotas):
                         else:
                             client.send("Passagem inválida.".encode('utf-8'))    
                         
-                case "4":
+                case "5":
                     client.send("closed".encode('utf-8'))
                     client.close()
                     break
@@ -185,6 +151,41 @@ def cancelar_passagem(user, passagem, rotas):
                     rota['assentos-livres'].sort()
 
 
+def comprar_passagem(rota_selecionada, client, user, rotas, menu):
+    # se o id enviado existir, continua o fluxo mandando escolher assento
+    if rota_selecionada:
+
+        if not rota_selecionada['assentos-livres']:
+            client.send(f"Não há mais assentos disponíveis nesta rota. \n {menu}".encode('utf-8'))
+
+        else:
+            assentos = get_formatted_assentos(rota_selecionada)
+            client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+            
+            assento = client.recv(1024).decode('utf-8').strip()
+
+            numero_assento = int(assento) if assento.isdigit() else 0
+
+            # lock ate finalizar a compra do assento
+            lock.acquire()
+
+            if numero_assento in rota_selecionada['assentos-livres']:
+                reserva_efetuada = reserva_assento(rota_selecionada, numero_assento, rotas)
+
+                # associa a passagem ao user respectivo
+                if reserva_efetuada:
+                    user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
+                    print(f"{user.name} comprou a passagem {rota_selecionada['trechos']}")
+                    client.send(f"Passagem comprada!\n {menu()}".encode('utf-8'))
+
+            else: client.send("O assento não está disponível ou é inválido.".encode('utf-8'))
+
+            lock.release()
+
+    else:
+        client.send("Rota não encontrada ou inválida.".encode('utf-8'))
+
+
 def reserva_assento(rota_selecionada, numero_assento, rotas):
     
     if rota_selecionada['tipo'] == 'direta':
@@ -235,6 +236,10 @@ def get_formatted_tickets(user):
             for i, passagem in enumerate(user.passagens)
         )
 
+def get_formatted_assentos(rota):
+    return ', '.join(str(assento) for assento in rota['assentos-livres'])
+
+
 def get_or_create_user(name):
     for user in users:
         if name == user.name:
@@ -244,6 +249,11 @@ def get_or_create_user(name):
     users.append(user)
     return user
 
+def get_route(rotas, id_rota):
+    for rota in rotas:
+        if rota['id'] == id_rota:
+            return rota
+
 def menu():
     negrito = '\033[1m'
     padrao = '\033[0m'
@@ -252,7 +262,7 @@ def menu():
 
     return (
         f'''\n 
-        {negrito}{azul}VendePass{padrao}
+        {negrito} {azul} VendePass
         {verde} 
         =======================
         1. Ver rotas

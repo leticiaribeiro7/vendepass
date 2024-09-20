@@ -28,6 +28,11 @@ def run_client(client):
         try:
                   
             msg = input("> ")
+
+            if not msg.strip():
+                print('Digite alguma opção\n')
+                continue
+                
             client.send(msg.encode("utf-8"))
 
             response = client.recv(1024)
