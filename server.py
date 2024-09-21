@@ -1,7 +1,6 @@
 import socket
 import threading
 import json
-import os
 import time
 
 from user import User
@@ -11,6 +10,12 @@ users = []
 lock = threading.Lock()
 
 TIMEOUT = 120
+
+VER_ROTAS = 1
+COMPRAR_PASSAGEM = 2
+VER_PASSAGENS = 3
+CANCELAR_PASSAGEM = 4
+SAIR = 5
 
 def main():
     
@@ -37,33 +42,36 @@ def main():
 
 def handle_client(client, rotas):
     client.settimeout(TIMEOUT)
-    client.send("Digite seu nome".encode('utf-8'))
-    name = client.recv(1024).decode('utf-8').strip()
+    client.send(json.dumps({"message": "Digite seu nome"}).encode('utf-8'))
+    name = json.loads(client.recv(1024).decode('utf-8').strip())
 
-    user = get_or_create_user(name)
 
-    client.send(f"Bem-vindo, {user.name}\n {menu()}".encode('utf-8'))
+    user = get_or_create_user(name.get('option'))
+
+    client.send(json.dumps({"message": f"Bem-vindo, {user.name}\n{menu()}"}).encode('utf-8'))
 
     while True:
         try:
-            request = client.recv(1024).decode('utf-8')
+            request = json.loads(client.recv(1024).decode('utf-8'))
             if not request:
                 break
                 
             # reseta o tempo a cada request
             client.settimeout(TIMEOUT)
 
-            match (request):     
+            option = request.get('option')
+
+            match (option):     
                 case "1":
                     rotas_disponiveis = get_formatted_routes(rotas)
-                    client.send(f"{rotas_disponiveis}".encode('utf-8'))
+                    client.send(json.dumps({"message": rotas_disponiveis}).encode('utf-8'))
 
                 case "2":
                     rotas_disponiveis = get_formatted_routes(rotas)
-                    client.send(f"{rotas_disponiveis}\nEscolha o número da rota correspondente: ".encode('utf-8'))
+                    client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
 
-                    rota = client.recv(1024).decode('utf-8').strip()
-                    id_rota = int(rota) if rota.isdigit() else None
+                    rota = json.loads(client.recv(1024).decode('utf-8').strip())
+                    id_rota = int(rota.get('option')) if rota.get('option').isdigit() else 0
                     
                     # busca a rota na lista pelo id
                     rota_selecionada = get_route(rotas, id_rota)
@@ -72,42 +80,43 @@ def handle_client(client, rotas):
                  
                 case "3":
                     passagens = get_formatted_tickets(user)
-                    client.send(passagens.encode('utf-8'))
+                    client.send(json.dumps({"message": passagens}).encode('utf-8'))
 
                 case "4":
 
                     if not user.passagens:
-                        client.send("Você não tem passagens compradas.".encode('utf-8'))
+                        client.send(json.dumps({"message": "Você não tem passagens compradas."}).encode('utf-8'))
                     else:
                         
                         passagens = get_formatted_tickets(user)
-                        client.send(f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: ".encode('utf-8'))
+                        client.send(json.dumps({"message": f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: "}).encode('utf-8'))
                         
-                        num_passagem = client.recv(1024).decode('utf-8').strip()
-                        idx_passagem = (int(num_passagem) - 1) if num_passagem.isdigit() else 0
+                        num_passagem = json.loads(client.recv(1024).decode('utf-8').strip())
+
+                        idx_passagem = (int(num_passagem.get('option')) - 1) if num_passagem.get('option').isdigit() else 0
 
 
                         if idx_passagem < len(user.passagens) and idx_passagem >= 0:
                             passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada, rotas)
 
-                            client.send(f"Passagem cancelada com sucesso.\n {menu()}".encode('utf-8'))
+                            client.send(json.dumps({"message": f"Passagem cancelada com sucesso.\n {menu()}"}).encode('utf-8'))
                         else:
-                            client.send("Passagem inválida.".encode('utf-8'))    
+                            client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))    
                         
                 case "5":
-                    client.send("closed".encode('utf-8'))
+                    client.send(json.dumps({"status":"closed"}).encode('utf-8'))
                     client.close()
                     break
 
                 case _:
-                    client.send(f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu()}".encode('utf-8'))
+                    client.send(json.dumps({"message": f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu()}"}).encode('utf-8'))
                   
     
 
         except socket.timeout:
             print(f"{user.name} desconectado por inatividade")
-            client.send("timeout".encode('utf-8'))
+            client.send(json.dumps({"status":"timeout"}).encode('utf-8'))
             client.close()
             break
         except Exception as e:
@@ -156,15 +165,15 @@ def comprar_passagem(rota_selecionada, client, user, rotas, menu):
     if rota_selecionada:
 
         if not rota_selecionada['assentos-livres']:
-            client.send(f"Não há mais assentos disponíveis nesta rota. \n {menu}".encode('utf-8'))
+            client.send(json.dumps({"message" : f"Não há mais assentos disponíveis nesta rota. \n {menu()}"}).encode('utf-8'))
 
         else:
             assentos = get_formatted_assentos(rota_selecionada)
-            client.send(f"Escolha o assento: {assentos}".encode('utf-8'))
+            client.send(json.dumps({"message" : f"Escolha o assento: {assentos}"}).encode('utf-8'))
             
-            assento = client.recv(1024).decode('utf-8').strip()
+            assento = json.loads(client.recv(1024).decode('utf-8').strip())
 
-            numero_assento = int(assento) if assento.isdigit() else 0
+            numero_assento = int(assento.get('option')) if assento.get('option').isdigit() else 0
 
             # lock ate finalizar a compra do assento
             lock.acquire()
@@ -176,14 +185,14 @@ def comprar_passagem(rota_selecionada, client, user, rotas, menu):
                 if reserva_efetuada:
                     user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
                     print(f"{user.name} comprou a passagem {rota_selecionada['trechos']}")
-                    client.send(f"Passagem comprada!\n {menu()}".encode('utf-8'))
+                    client.send(json.dumps({"message" : f"Passagem comprada!\n {menu()}"}).encode('utf-8'))
 
-            else: client.send("O assento não está disponível ou é inválido.".encode('utf-8'))
+            else: client.send(json.dumps({"message": "O assento não está disponível ou é inválido."}).encode('utf-8'))
 
             lock.release()
 
     else:
-        client.send("Rota não encontrada ou inválida.".encode('utf-8'))
+        client.send(json.dumps({"message": "Rota não encontrada ou inválida."}).encode('utf-8'))
 
 
 def reserva_assento(rota_selecionada, numero_assento, rotas):
@@ -262,7 +271,7 @@ def menu():
 
     return (
         f'''\n 
-        {negrito} {azul} VendePass
+        {azul}{negrito} VendePass
         {verde} 
         =======================
         1. Ver rotas
@@ -277,11 +286,6 @@ def menu():
         =======================
         Digite a opção desejada: '''
     )
-
-def find_user(name):
-    for usuario in users:
-        if name == usuario.name:
-            return usuario
 
 if __name__ == "__main__":
     main()

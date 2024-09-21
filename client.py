@@ -1,6 +1,7 @@
 import socket
 import threading
 import time
+import json
 
 def main():
     
@@ -11,9 +12,9 @@ def main():
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
-        response = client.recv(1024).decode('utf-8')
-        
-        print(response)
+        response = json.loads(client.recv(1024).decode('utf-8'))
+        print(response.get("message"))
+
 
     except Exception as e:
         return print(f"\n Não foi possível se conectar: {e}")
@@ -30,30 +31,34 @@ def run_client(client):
             msg = input("> ")
 
             if not msg.strip():
-                print('Digite alguma opção\n')
+                print('Digite alguma opção')
                 continue
-                
-            client.send(msg.encode("utf-8"))
 
-            response = client.recv(1024)
-            response = response.decode("utf-8")
+            req = {"option": msg}   
+            client.send(json.dumps(req).encode("utf-8"))
 
+            response = json.loads(client.recv(1024).decode('utf-8'))
+
+            status = response.get("status")
+            
             # se a resposta estiver vazia é pq o server caiu
             if not response:
                 raise ConnectionResetError
 
             # se server enviar closed, sai do loop e fecha a conexão
-            if response.lower() == "closed":
+            if status == "closed":
                 print("Conexão finalizada.")
                 client.close()
                 break
             
-            elif response.lower() == "timeout":
+            elif status == "timeout":
                 print("\033[0;31m Conexão finalizada por inatividade.")
                 client.close()
                 break
+            
+            message = response.get('message')
 
-            print(f"\n{response}")
+            print(f"\n{message}")
 
         except (ConnectionResetError, BrokenPipeError, OSError):
             print("Conexão com o servidor foi perdida.")

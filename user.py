@@ -1,6 +1,5 @@
 class User:
     def __init__(self, name):
-        # passagem: rota:{}, assento:0
         self.name = name
         self.passagens = []
 
