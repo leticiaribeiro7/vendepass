@@ -6,7 +6,6 @@
 </div>
 
 ## Introdução
-## Fundamentação Teórica
 ## Metodologia
 ## Resultados e Conclusão
 ## Referências
