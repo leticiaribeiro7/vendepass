@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import time
+import traceback
+from enum import Enum
 
 from user import User
 
@@ -11,11 +13,12 @@ lock = threading.Lock()
 
 TIMEOUT = 120
 
-VER_ROTAS = 1
-COMPRAR_PASSAGEM = 2
-VER_PASSAGENS = 3
-CANCELAR_PASSAGEM = 4
-SAIR = 5
+class Menu(Enum):
+    VER_ROTAS = 1
+    COMPRAR_PASSAGEM = 2
+    VER_PASSAGENS = 3
+    CANCELAR_PASSAGEM = 4
+    SAIR = 5
 
 def main():
     
@@ -61,28 +64,32 @@ def handle_client(client, rotas):
 
             option = request.get('option')
 
-            match (option):     
-                case "1":
+            match (int(option)):     
+                case Menu.VER_ROTAS.value:
                     rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(json.dumps({"message": rotas_disponiveis}).encode('utf-8'))
 
-                case "2":
+                case Menu.COMPRAR_PASSAGEM.value:
                     rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
 
                     rota = json.loads(client.recv(1024).decode('utf-8').strip())
-                    id_rota = int(rota.get('option')) if rota.get('option').isdigit() else 0
-                    
+                    id_rota = validate_int(rota.get('option'))
+
                     # busca a rota na lista pelo id
                     rota_selecionada = get_route(rotas, id_rota)
 
                     comprar_passagem(rota_selecionada, client, user, rotas, menu)
                  
-                case "3":
+                case Menu.VER_PASSAGENS.value:
+                    
+                    if not user.passagens:
+                        client.send(json.dumps({"message": "Você não tem passagens compradas."}).encode('utf-8'))
+
                     passagens = get_formatted_tickets(user)
                     client.send(json.dumps({"message": passagens}).encode('utf-8'))
 
-                case "4":
+                case Menu.CANCELAR_PASSAGEM.value:
 
                     if not user.passagens:
                         client.send(json.dumps({"message": "Você não tem passagens compradas."}).encode('utf-8'))
@@ -93,7 +100,7 @@ def handle_client(client, rotas):
                         
                         num_passagem = json.loads(client.recv(1024).decode('utf-8').strip())
 
-                        idx_passagem = (int(num_passagem.get('option')) - 1) if num_passagem.get('option').isdigit() else 0
+                        idx_passagem = validate_int(num_passagem.get('option')) - 1
 
 
                         if idx_passagem < len(user.passagens) and idx_passagem >= 0:
@@ -104,7 +111,7 @@ def handle_client(client, rotas):
                         else:
                             client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))    
                         
-                case "5":
+                case Menu.SAIR.value:
                     client.send(json.dumps({"status":"closed"}).encode('utf-8'))
                     client.close()
                     break
@@ -120,7 +127,7 @@ def handle_client(client, rotas):
             client.close()
             break
         except Exception as e:
-            print(f"Erro: {e}")
+            print(traceback.format_exc())
             client.close()
             break
 
@@ -144,6 +151,7 @@ def cancelar_passagem(user, passagem, rotas):
                 origem_trecho = rota_cancelada['trechos'][i]
                 destino_trecho = rota_cancelada['trechos'][i + 1]
 
+                
                 if rota['trechos'] == [origem_trecho, destino_trecho] and rota['tipo'] == 'direta':
                     if assento not in rota['assentos-livres']:
                         rota['assentos-livres'].append(assento)
@@ -154,7 +162,12 @@ def cancelar_passagem(user, passagem, rotas):
             origem_trecho = rota_cancelada['trechos'][0]
             destino_trecho = rota_cancelada['trechos'][1]
 
-            if rota['tipo'] == 'trecho' and origem_trecho in rota['trechos'] and destino_trecho in rota['trechos']:
+
+            # verifica se a origem e destino da rota direta está contido na rota de trecho
+            trecho_contido = origem_trecho in rota['trechos'] and destino_trecho in rota['trechos']
+
+            # garante que os segmentos estão adjacentes no array de trechos
+            if rota['tipo'] == 'trecho' and trecho_contido and rota['trechos'].index(destino_trecho) - rota['trechos'].index(origem_trecho) == 1:
                 if assento not in rota['assentos-livres']:
                     rota['assentos-livres'].append(assento)
                     rota['assentos-livres'].sort()
@@ -173,7 +186,7 @@ def comprar_passagem(rota_selecionada, client, user, rotas, menu):
             
             assento = json.loads(client.recv(1024).decode('utf-8').strip())
 
-            numero_assento = int(assento.get('option')) if assento.get('option').isdigit() else 0
+            numero_assento = validate_int(assento.get('option'))
 
             # lock ate finalizar a compra do assento
             lock.acquire()
@@ -200,7 +213,7 @@ def reserva_assento(rota_selecionada, numero_assento, rotas):
     if rota_selecionada['tipo'] == 'direta':
         rota_selecionada['assentos-livres'].remove(numero_assento)
 
-        # bloqueia o assento nas rotas que tem trecho tbm
+        # bloqueia o assento nas rotas que tem trecho também
         for rota in rotas:
             for i in range(len(rota['trechos']) - 1):
                 origem = rota['trechos'][i]
@@ -263,7 +276,15 @@ def get_route(rotas, id_rota):
         if rota['id'] == id_rota:
             return rota
 
+def validate_int(user_input):
+    if user_input.isdigit():
+        return int(user_input)
+    
+    return 0
+
+
 def menu():
+    
     negrito = '\033[1m'
     padrao = '\033[0m'
     verde = '\033[0;32m'
@@ -284,7 +305,7 @@ def menu():
         =======================
         5. Sair
         =======================
-        Digite a opção desejada: '''
+        Digite a opção desejada: {padrao}'''
     )
 
 if __name__ == "__main__":

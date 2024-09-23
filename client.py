@@ -60,12 +60,9 @@ def run_client(client):
 
             print(f"\n{message}")
 
-        except (ConnectionResetError, BrokenPipeError, OSError):
+        except (ConnectionResetError, BrokenPipeError, OSError, Exception):
             print("Conexão com o servidor foi perdida.")
             client.close()
-            break
-        except Exception as e:
-            print(f"Erro: {e}")
             break
 
 if __name__ == "__main__":

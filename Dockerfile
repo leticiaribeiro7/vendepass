@@ -1,12 +1,6 @@
 FROM python
 WORKDIR /app
 
-# Copia o arquivo requirements.txt para o container
-# COPY requirements.txt .
-
-# Instala as dependências
-# RUN pip install --no-cache-dir -r requirements.txt
-
 # Copia o código da aplicação para o diretório de trabalho
 COPY . .
 
