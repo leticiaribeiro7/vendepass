@@ -12,7 +12,7 @@ def main():
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
-        response = json.loads(client.recv(1024).decode('utf-8'))
+        response = json.loads(client.recv(2048).decode('utf-8'))
         print(response.get("message"))
 
 
@@ -37,7 +37,7 @@ def run_client(client):
             req = {"option": msg}   
             client.send(json.dumps(req).encode("utf-8"))
 
-            response = json.loads(client.recv(1024).decode('utf-8'))
+            response = json.loads(client.recv(2048).decode('utf-8'))
 
             status = response.get("status")
             

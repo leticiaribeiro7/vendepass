@@ -46,7 +46,7 @@ def main():
 def handle_client(client, rotas):
     client.settimeout(TIMEOUT)
     client.send(json.dumps({"message": "Digite seu nome"}).encode('utf-8'))
-    name = json.loads(client.recv(1024).decode('utf-8').strip())
+    name = json.loads(client.recv(2048).decode('utf-8').strip())
 
 
     user = get_or_create_user(name.get('option'))
@@ -55,7 +55,7 @@ def handle_client(client, rotas):
 
     while True:
         try:
-            request = json.loads(client.recv(1024).decode('utf-8'))
+            request = json.loads(client.recv(2048).decode('utf-8'))
             if not request:
                 break
                 
@@ -73,32 +73,32 @@ def handle_client(client, rotas):
                     rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
 
-                    rota = json.loads(client.recv(1024).decode('utf-8').strip())
+                    rota = json.loads(client.recv(2048).decode('utf-8').strip())
                     id_rota = validate_int(rota.get('option'))
 
                     # busca a rota na lista pelo id
                     rota_selecionada = get_route(rotas, id_rota)
-
+                    print(rota_selecionada)
                     comprar_passagem(rota_selecionada, client, user, rotas, menu)
                  
                 case Menu.VER_PASSAGENS.value:
                     
                     if not user.passagens:
-                        client.send(json.dumps({"message": "Você não tem passagens compradas."}).encode('utf-8'))
-
-                    passagens = get_formatted_tickets(user)
-                    client.send(json.dumps({"message": passagens}).encode('utf-8'))
+                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}" }).encode('utf-8'))
+                    else:
+                        passagens = get_formatted_tickets(user)
+                        client.send(json.dumps({"message": passagens}).encode('utf-8'))
 
                 case Menu.CANCELAR_PASSAGEM.value:
 
                     if not user.passagens:
-                        client.send(json.dumps({"message": "Você não tem passagens compradas."}).encode('utf-8'))
+                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}" }).encode('utf-8'))
                     else:
                         
                         passagens = get_formatted_tickets(user)
                         client.send(json.dumps({"message": f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: "}).encode('utf-8'))
                         
-                        num_passagem = json.loads(client.recv(1024).decode('utf-8').strip())
+                        num_passagem = json.loads(client.recv(2048).decode('utf-8').strip())
 
                         idx_passagem = validate_int(num_passagem.get('option')) - 1
 
@@ -184,7 +184,7 @@ def comprar_passagem(rota_selecionada, client, user, rotas, menu):
             assentos = get_formatted_assentos(rota_selecionada)
             client.send(json.dumps({"message" : f"Escolha o assento: {assentos}"}).encode('utf-8'))
             
-            assento = json.loads(client.recv(1024).decode('utf-8').strip())
+            assento = json.loads(client.recv(2048).decode('utf-8').strip())
 
             numero_assento = validate_int(assento.get('option'))
 
