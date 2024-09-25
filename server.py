@@ -41,6 +41,7 @@ def main():
 
         thread = threading.Thread(target=handle_client, args=(client, rotas))
         thread.start()
+        thread.join()
 
 
 def handle_client(client, rotas):
@@ -78,7 +79,6 @@ def handle_client(client, rotas):
 
                     # busca a rota na lista pelo id
                     rota_selecionada = get_route(rotas, id_rota)
-                    print(rota_selecionada)
                     comprar_passagem(rota_selecionada, client, user, rotas, menu)
                  
                 case Menu.VER_PASSAGENS.value:
@@ -114,6 +114,7 @@ def handle_client(client, rotas):
                 case Menu.SAIR.value:
                     client.send(json.dumps({"status":"closed"}).encode('utf-8'))
                     client.close()
+                    print(f"{user.name} se desconectou.")
                     break
 
                 case _:
@@ -277,10 +278,9 @@ def get_route(rotas, id_rota):
             return rota
 
 def validate_int(user_input):
-    if isinstance(user_input, int):
-        return user_input
-    elif isinstance(user_input, str) and user_input.isdigit():
+    if user_input.isdigit():
         return int(user_input)
+
     return 0
 
 

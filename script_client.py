@@ -27,27 +27,30 @@ def clients_test(client_id):
 
         nome_msg = recv_json()
         print(f"\n[Cliente {client_id}] recebeu: {nome_msg.get('message')}\n")
-        client_socket.send(json.dumps({"nome": f"Cliente_{client_id}"}).encode('utf-8'))
+        client_socket.send(json.dumps({"option": f"Cliente_{client_id}"}).encode('utf-8'))
 
         # Recebe o menu e escolhe comprar passagem (opção 2)
         menu_msg = recv_json()
         print(f"[Cliente {client_id}] recebeu o menu:\n{menu_msg.get('message')}\n")
-        client_socket.send(json.dumps({"option": 2}).encode('utf-8'))
+        client_socket.send(json.dumps({"option": "2"}).encode('utf-8'))
 
         # Recebe a lista de rotas e escolhe uma rota (se for par, escolhe rota 4. ímpar, rota 3)
         rotas_msg = recv_json()
         print(f"[Cliente {client_id}] recebeu as rotas:\n{rotas_msg.get('message')}\n")
-        rota_escolhida = 4 if int(client_id) % 2 == 0 else 3
+        rota_escolhida = "4" if int(client_id) % 2 == 0 else "3"
         client_socket.send(json.dumps({"option": rota_escolhida}).encode('utf-8'))
 
         # Recebe lista de assentos e escolhe um (assento 1)
         assentos_msg = recv_json()
         print(f"[Cliente {client_id}] recebeu os assentos:\n{assentos_msg.get('message')}\n")
-        client_socket.send(json.dumps({"option": 1}).encode('utf-8'))
+        client_socket.send(json.dumps({"option": "1"}).encode('utf-8'))
 
         # Recebe a confirmação da compra
         compra_msg = recv_json()
-        print(f"[Cliente {client_id}] recebeu confirmação de compra:\n{compra_msg.get('message')}\n")
+        print(f"[Cliente {client_id}] recebeu confirmação ou recusa de compra:\n{compra_msg.get('message')}\n")
+        
+        # Se desconecta do servidor
+        client_socket.send(json.dumps({"option": "5"}).encode('utf-8'))
 
     except Exception as e:
         print(f"[Erro no Cliente {client_id}] {e}\n")
