@@ -28,7 +28,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5000))   # colocar localhost em Windows
+        server.bind(('0.0.0.0', 5554))   # colocar localhost em Windows
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -41,7 +41,6 @@ def main():
 
         thread = threading.Thread(target=handle_client, args=(client, rotas))
         thread.start()
-        thread.join()
 
 
 def handle_client(client, rotas):
@@ -65,12 +64,14 @@ def handle_client(client, rotas):
 
             option = request.get('option')
 
-            match (int(option)):     
-                case Menu.VER_ROTAS.value:
+            try:
+                option_value = int(option)
+
+                if option_value == Menu.VER_ROTAS.value:
                     rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(json.dumps({"message": rotas_disponiveis}).encode('utf-8'))
 
-                case Menu.COMPRAR_PASSAGEM.value:
+                elif option_value == Menu.COMPRAR_PASSAGEM.value:
                     rotas_disponiveis = get_formatted_routes(rotas)
                     client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
 
@@ -80,45 +81,44 @@ def handle_client(client, rotas):
                     # busca a rota na lista pelo id
                     rota_selecionada = get_route(rotas, id_rota)
                     comprar_passagem(rota_selecionada, client, user, rotas, menu)
-                 
-                case Menu.VER_PASSAGENS.value:
-                    
+
+                elif option_value == Menu.VER_PASSAGENS.value:
                     if not user.passagens:
-                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}" }).encode('utf-8'))
+                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
                     else:
                         passagens = get_formatted_tickets(user)
                         client.send(json.dumps({"message": passagens}).encode('utf-8'))
 
-                case Menu.CANCELAR_PASSAGEM.value:
-
+                elif option_value == Menu.CANCELAR_PASSAGEM.value:
                     if not user.passagens:
-                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}" }).encode('utf-8'))
+                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
                     else:
-                        
                         passagens = get_formatted_tickets(user)
                         client.send(json.dumps({"message": f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: "}).encode('utf-8'))
-                        
-                        num_passagem = json.loads(client.recv(2048).decode('utf-8').strip())
 
+                        num_passagem = json.loads(client.recv(2048).decode('utf-8').strip())
                         idx_passagem = validate_int(num_passagem.get('option')) - 1
 
-
-                        if idx_passagem < len(user.passagens) and idx_passagem >= 0:
+                        if 0 <= idx_passagem < len(user.passagens):
                             passagem_selecionada = user.get_passagem(idx_passagem)
                             cancelar_passagem(user, passagem_selecionada, rotas)
 
-                            client.send(json.dumps({"message": f"Passagem cancelada com sucesso.\n {menu()}"}).encode('utf-8'))
+                            client.send(json.dumps({"message": f"Passagem cancelada com sucesso.\n{menu()}"}).encode('utf-8'))
                         else:
-                            client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))    
-                        
-                case Menu.SAIR.value:
-                    client.send(json.dumps({"status":"closed"}).encode('utf-8'))
+                            client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))
+
+                elif option_value == Menu.SAIR.value:
+                    client.send(json.dumps({"status": "closed"}).encode('utf-8'))
                     client.close()
                     print(f"{user.name} se desconectou.")
                     break
 
-                case _:
-                    client.send(json.dumps({"message": f"Opção inválida. Por favor, escolha uma opção do menu.\n {menu()}"}).encode('utf-8'))
+                else:
+                    client.send(json.dumps({"message": f"Opção inválida. Por favor, escolha uma opção do menu.\n{menu()}"}).encode('utf-8'))
+
+            except ValueError:
+                client.send(json.dumps({"message": "Opção inválida. Por favor, escolha uma opção do menu.\n{menu()}"}).encode('utf-8'))
+
                   
     
 
