@@ -13,7 +13,7 @@ import json
 def clients_test(client_id):
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(('localhost', 5000))
+        client_socket.connect(('0.0.0.0', 5000))
 
         # Função auxiliar para receber mensagens
         def recv_json():

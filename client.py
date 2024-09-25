@@ -8,11 +8,11 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        client.connect(('localhost', 5000))
+        client.connect(('0.0.0.0', 5000))
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
-        response = json.loads(client.recv(4096).decode('utf-8'))
+        response = json.loads(client.recv(2048).decode('utf-8'))
         print(response.get("message"))
 
 
