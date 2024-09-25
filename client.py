@@ -12,7 +12,7 @@ def main():
         print("Conectado ao servidor.")
 
         # Recebe e imprime o menu inicial enviado pelo servidor
-        response = json.loads(client.recv(2048).decode('utf-8'))
+        response = json.loads(client.recv(4096).decode('utf-8'))
         print(response.get("message"))
 
 

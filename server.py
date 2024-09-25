@@ -28,7 +28,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5000))
+        server.bind(('localhost', 5000))
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -277,9 +277,10 @@ def get_route(rotas, id_rota):
             return rota
 
 def validate_int(user_input):
-    if user_input.isdigit():
+    if isinstance(user_input, int):
+        return user_input
+    elif isinstance(user_input, str) and user_input.isdigit():
         return int(user_input)
-    
     return 0
 
 
