@@ -28,7 +28,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5554))   # colocar localhost em Windows
+        server.bind(('0.0.0.0', 5000))   # colocar localhost em Windows
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -48,7 +48,6 @@ def handle_client(client, rotas):
     client.send(json.dumps({"message": "Digite seu nome"}).encode('utf-8'))
     name = json.loads(client.recv(2048).decode('utf-8').strip())
 
-
     user = get_or_create_user(name.get('option'))
 
     client.send(json.dumps({"message": f"Bem-vindo, {user.name}\n{menu()}"}).encode('utf-8'))
@@ -64,63 +63,57 @@ def handle_client(client, rotas):
 
             option = request.get('option')
 
-            try:
-                option_value = int(option)
+            option_value = int(option)
 
-                if option_value == Menu.VER_ROTAS.value:
-                    rotas_disponiveis = get_formatted_routes(rotas)
-                    client.send(json.dumps({"message": rotas_disponiveis}).encode('utf-8'))
+            if option_value == Menu.VER_ROTAS.value:
+                rotas_disponiveis = get_formatted_routes(rotas)
+                client.send(json.dumps({"message": rotas_disponiveis}).encode('utf-8'))
 
-                elif option_value == Menu.COMPRAR_PASSAGEM.value:
-                    rotas_disponiveis = get_formatted_routes(rotas)
-                    client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
+            elif option_value == Menu.COMPRAR_PASSAGEM.value:
+                rotas_disponiveis = get_formatted_routes(rotas)
+                client.send(json.dumps({"message": f"{rotas_disponiveis}\nEscolha o número da rota correspondente:"}).encode('utf-8'))
 
-                    rota = json.loads(client.recv(2048).decode('utf-8').strip())
-                    id_rota = validate_int(rota.get('option'))
+                rota = json.loads(client.recv(2048).decode('utf-8').strip())
+                id_rota = validate_int(rota.get('option'))
 
-                    # busca a rota na lista pelo id
-                    rota_selecionada = get_route(rotas, id_rota)
-                    comprar_passagem(rota_selecionada, client, user, rotas, menu)
+                # busca a rota na lista pelo id
+                rota_selecionada = get_route(rotas, id_rota)
+                comprar_passagem(rota_selecionada, client, user, rotas, menu)
 
-                elif option_value == Menu.VER_PASSAGENS.value:
-                    if not user.passagens:
-                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
-                    else:
-                        passagens = get_formatted_tickets(user)
-                        client.send(json.dumps({"message": passagens}).encode('utf-8'))
-
-                elif option_value == Menu.CANCELAR_PASSAGEM.value:
-                    if not user.passagens:
-                        client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
-                    else:
-                        passagens = get_formatted_tickets(user)
-                        client.send(json.dumps({"message": f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: "}).encode('utf-8'))
-
-                        num_passagem = json.loads(client.recv(2048).decode('utf-8').strip())
-                        idx_passagem = validate_int(num_passagem.get('option')) - 1
-
-                        if 0 <= idx_passagem < len(user.passagens):
-                            passagem_selecionada = user.get_passagem(idx_passagem)
-                            cancelar_passagem(user, passagem_selecionada, rotas)
-
-                            client.send(json.dumps({"message": f"Passagem cancelada com sucesso.\n{menu()}"}).encode('utf-8'))
-                        else:
-                            client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))
-
-                elif option_value == Menu.SAIR.value:
-                    client.send(json.dumps({"status": "closed"}).encode('utf-8'))
-                    client.close()
-                    print(f"{user.name} se desconectou.")
-                    break
-
+            elif option_value == Menu.VER_PASSAGENS.value:
+                if not user.passagens:
+                    client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
                 else:
-                    client.send(json.dumps({"message": f"Opção inválida. Por favor, escolha uma opção do menu.\n{menu()}"}).encode('utf-8'))
+                    passagens = get_formatted_tickets(user)
+                    client.send(json.dumps({"message": passagens}).encode('utf-8'))
 
-            except ValueError:
-                client.send(json.dumps({"message": "Opção inválida. Por favor, escolha uma opção do menu.\n{menu()}"}).encode('utf-8'))
+            elif option_value == Menu.CANCELAR_PASSAGEM.value:
+                if not user.passagens:
+                    client.send(json.dumps({"message": f"Você não tem passagens compradas. \n{menu()}"}).encode('utf-8'))
+                else:
+                    passagens = get_formatted_tickets(user)
+                    client.send(json.dumps({"message": f"Suas passagens:\n{passagens}\nEscolha o número da passagem para cancelar: "}).encode('utf-8'))
 
-                  
-    
+                    num_passagem = json.loads(client.recv(2048).decode('utf-8').strip())
+                    idx_passagem = validate_int(num_passagem.get('option')) - 1
+
+                    if idx_passagem < len(user.passagens) and idx_passagem >= 0:
+                        passagem_selecionada = user.get_passagem(idx_passagem)
+                        cancelar_passagem(user, passagem_selecionada, rotas)
+
+                        client.send(json.dumps({"message": f"Passagem cancelada com sucesso.\n{menu()}"}).encode('utf-8'))
+                    else:
+                        client.send(json.dumps({"message": "Passagem inválida."}).encode('utf-8'))
+
+            elif option_value == Menu.SAIR.value:
+                client.send(json.dumps({"status": "closed"}).encode('utf-8'))
+                client.close()
+                print(f"{user.name} se desconectou.")
+                break
+
+            else:
+                client.send(json.dumps({"message": f"Opção inválida. Por favor, escolha uma opção do menu.\n{menu()}"}).encode('utf-8'))
+
 
         except socket.timeout:
             print(f"{user.name} desconectado por inatividade")
@@ -198,7 +191,7 @@ def comprar_passagem(rota_selecionada, client, user, rotas, menu):
                 # associa a passagem ao user respectivo
                 if reserva_efetuada:
                     user.set_passagem({'rota': rota_selecionada, 'assento': numero_assento})
-                    print(f"{user.name} comprou a passagem {rota_selecionada['trechos']}")
+                    print(f"{user.name} comprou a passagem com os trechos {rota_selecionada['trechos']}")
                     client.send(json.dumps({"message" : f"Passagem comprada!\n {menu()}"}).encode('utf-8'))
 
             else: client.send(json.dumps({"message": "O assento não está disponível ou é inválido."}).encode('utf-8'))
@@ -293,20 +286,22 @@ def menu():
 
     return (
         f'''\n 
-        {azul}{negrito} VendePass
+        {azul}{negrito}
+                VendePass
         {verde} 
-        =======================
+        ==========================
         1. Ver rotas
-        =======================
+        ==========================
         2. Comprar passagem
-        =======================
+        ==========================
         3. Ver passagens compradas
-        =======================
+        ==========================
         4. Cancelar passagem
-        =======================
+        ==========================
         5. Sair
-        =======================
-        Digite a opção desejada: {padrao}'''
+        ==========================
+        Digite a opção desejada: 
+        {padrao}'''
     )
 
 if __name__ == "__main__":
