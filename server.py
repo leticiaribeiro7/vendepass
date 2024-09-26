@@ -28,7 +28,7 @@ def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
-        server.bind(('0.0.0.0', 5000))   # colocar localhost em Windows
+        server.bind(('0.0.0.0', 5555))   # colocar localhost em Windows
         server.listen()
         print("Servidor iniciado e aguardando conexões...")
     
@@ -131,13 +131,14 @@ def cancelar_passagem(user, passagem, rotas):
     assento = passagem['assento']
     rota_cancelada = passagem['rota']
 
+    rota = get_route(rotas, rota_cancelada['id'])
+
+    if assento not in rota['assentos-livres']:
+        rota['assentos-livres'].append(assento)
+        rota['assentos-livres'].sort()
+
     # Atualiza as rotas afetadas
     for rota in rotas:
-        if rota['id'] == rota_cancelada['id']:
-            # Adiciona o assento da cancelada de volta nas rotas
-            if assento not in rota['assentos-livres']:
-                rota['assentos-livres'].append(assento)
-                rota['assentos-livres'].sort()
         
         # Se a rota cancelada é do tipo 'trecho', atualiza as rotas diretas correspondentes
         if rota_cancelada['tipo'] == 'trecho':
